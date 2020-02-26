@@ -107,11 +107,16 @@ try:
         exit(0)
 
     remote_release_version = result["config"]["firmware"]
+
+    if ((float(local_release_version) < 6.59) & (family == 1)) | ((float(remote_release_version) < 2.15) & (family == 0)):
+        print("Error: WTI Device does not support remote upgrade\n")
+        exit(0)
+
     print("WTI reports the latest of a %s is Version: %s\n" % (("Console" if family == 1 else "Power"), remote_release_version))
 
     if (int(result["code"]) == 0):
         local_filename = None
-        if ((float(local_release_version) <= float(remote_release_version)) or (forceupgrade == 1)):
+        if ((float(local_release_version) < float(remote_release_version)) or (forceupgrade == 1)):
             online_file_location = result["config"]["imageurl"]
 
             local_filename = online_file_location[online_file_location.rfind("/")+1:]
