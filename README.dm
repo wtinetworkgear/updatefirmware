@@ -11,7 +11,7 @@ This Python script requires Python 3.0 and above and the `requests` module.
 # To Run:
 `python3 upgrade.py`
 
-The program will ask for the protocol "http or https", the location of your WTI device and the username and password of that WTI device.
+The program will ask for the protocol "http or https", the location of your WTI device and the username/password of that WTI device, and if you want to only check the device without updating.
 
 # Contact US
 This software is presented for demonstration purposes only, but if you have any questions, comments or suggestions you can email us at kenp@wti.com
