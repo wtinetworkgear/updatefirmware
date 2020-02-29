@@ -33,6 +33,7 @@ result = ""
 forceupgrade = 0
 family = 1
 fips = None
+checkonly = 0
 
 assert sys.version_info >= (3, 0)
 
@@ -57,6 +58,11 @@ if (len(tempdata) > 0):
 tempdata = input("Enter Device Password [default: %s ]: " % (PASSWORD))
 if (len(tempdata) > 0):
     PASSWORD = tempdata
+
+tempdata = input("Check Only [default: %s ]: " % ("No"))
+if (len(tempdata) > 0):
+    if ((tempdata.upper() == "YES") or (tempdata.upper() == "Y")):
+        checkonly = 1
 
 try:
     # 1. Get the current version and the device type of a WTI device
@@ -117,40 +123,43 @@ try:
     if (int(result["code"]) == 0):
         local_filename = None
         if ((float(local_release_version) < float(remote_release_version)) or (forceupgrade == 1)):
-            online_file_location = result["config"]["imageurl"]
+            if (checkonly == 0):
+                online_file_location = result["config"]["imageurl"]
 
-            local_filename = online_file_location[online_file_location.rfind("/")+1:]
-            local_filename = tempfile.gettempdir() + "/" + local_filename
+                local_filename = online_file_location[online_file_location.rfind("/")+1:]
+                local_filename = tempfile.gettempdir() + "/" + local_filename
 
-            print("Downloading %s --> %s\n" % (online_file_location, local_filename))
+                print("Downloading %s --> %s\n" % (online_file_location, local_filename))
 
-            response = requests.get(online_file_location, stream=True)
-            handle = open(local_filename, "wb")
-            for chunk in response.iter_content(chunk_size=512):
-                if chunk:  # filter out keep-alive new chunks
-                    handle.write(chunk)
-            handle.close()
+                response = requests.get(online_file_location, stream=True)
+                handle = open(local_filename, "wb")
+                for chunk in response.iter_content(chunk_size=512):
+                    if chunk:  # filter out keep-alive new chunks
+                        handle.write(chunk)
+                handle.close()
 
-            # SEND the file to the WTI device
-            fullurl = ("%s%s/cgi-bin/getfile" % (URI, SITE_NAME))
-            files = {'file': ('name.binary', open(local_filename, 'rb'), 'application/octet-stream')}
+                # SEND the file to the WTI device
+                fullurl = ("%s%s/cgi-bin/getfile" % (URI, SITE_NAME))
+                files = {'file': ('name.binary', open(local_filename, 'rb'), 'application/octet-stream')}
 
-            print("Sending %s --> %s%s\n" % (local_filename, URI, SITE_NAME))
+                print("Sending %s --> %s%s\n" % (local_filename, URI, SITE_NAME))
 
-            response = requests.post(fullurl, files=files, auth=(USERNAME, PASSWORD), verify=False, stream=True)
-            result = response.json()
+                response = requests.post(fullurl, files=files, auth=(USERNAME, PASSWORD), verify=False, stream=True)
+                result = response.json()
 
-            print("response: %s\n" % (response))
-            print(response.text)
+                print("response: %s\n" % (response))
+                print(response.text)
 
-            if (response.status_code == 200):
-                parsed_json = response.json()
-                if (int(parsed_json['status']["code"]) == 0):
-                    print("\n\nUpgrade Successful, please wait a few moments while [%s] processes the file.\n" % (SITE_NAME))
-                else:
-                    print("\n\nUpgrade Failed for [%s].\n" % (SITE_NAME))
+                if (response.status_code == 200):
+                    parsed_json = response.json()
+                    if (int(parsed_json['status']["code"]) == 0):
+                        print("\n\nUpgrade Successful, please wait a few moments while [%s] processes the file.\n" % (SITE_NAME))
+                    else:
+                        print("\n\nUpgrade Failed for [%s].\n" % (SITE_NAME))
 
-            os.remove(local_filename)
+                os.remove(local_filename)
+            else:
+                print("Device at [%s] is out of date.\n" % (SITE_NAME))
         else:
             print("Device at [%s] is up to date.\n" % (SITE_NAME))
 
