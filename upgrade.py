@@ -114,7 +114,7 @@ try:
 
     remote_release_version = result["config"]["firmware"]
 
-    if ((float(local_release_version) < 6.59) & (family == 1)) | ((float(remote_release_version) < 2.15) & (family == 0)):
+    if ((float(local_release_version) < 6.58) & (family == 1)) | ((float(remote_release_version) < 2.15) & (family == 0)):
         print("Error: WTI Device does not support remote upgrade\n")
         exit(0)
 
