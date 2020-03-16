@@ -98,7 +98,7 @@ if (usersuppliedfilename is not None):
         exit(1)
 
 if ((parameterspassed & 4) == 0):
-    tempdata = input("Enter URI [default: %s ]: " % (URI))
+    tempdata = input("Enter Protocol [default: %s ]: " % (URI))
     if (len(tempdata) > 0):
         URI = tempdata
 
@@ -141,12 +141,12 @@ try:
 #        print(response.text)
         local_release_version = result["config"]["firmware"]
         try:
-            family = result['data']["config"]["family"]
+            family = int(result["config"]["family"])
         except Exception as ex:
             family = 1
 
         try:
-            fips = result['data']["config"]["fips"]
+            fips = result["config"]["fips"]
             if (fips == 0):
                 fips = 1  # MAKE 2, 1 ONLY TEST: get me the no fips or merged code
         except Exception as ex:
@@ -155,6 +155,8 @@ try:
         print("Device reports Version: %s, Family: %s\n" % (local_release_version, ("Console" if family == 1 else "Power")))
         if (localfilefamily != -1):
             if (family != localfilefamily):
+                print("Device reports family: %d, localfilefamily: %d\n" % (family, localfilefamily))
+
                 print("FAMILY MISMATCH: Your local file is a %s type, and the device is a %s type\n\n" % (("Console" if localfilefamily == 1 else "Power"), ("Console" if family == 1 else "Power")))
                 exit(3)
 
