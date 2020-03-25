@@ -31,6 +31,8 @@ USERNAME = "super"
 PASSWORD = "super"
 
 usersuppliedfilename = None
+#usersuppliedfilename = "uimage_3352_128512_tsm_v6.59.md5"
+#usersuppliedfilename = "uimage_3352_128512_vmr_v2.15.md5"
 localfilefamily = -1
 result = ""
 forceupgrade = 0
@@ -41,17 +43,18 @@ parameterspassed = 0
 
 assert sys.version_info >= (3, 0)
 
-print("WTI Device Upgrade Program 1.0 (Python)\n")
+print("WTI Device Upgrade Program\n")
 
 try:
     argv = sys.argv[1:]
-    opts, args = getopt.getopt(argv, 'hm:f:l:a:n:p:c:', ["mode=", "file=", "layer=", "address=", "name=", "pass=", "checkonly="])
+    opts, args = getopt.getopt(argv, 'hm:f:l:a:n:p:c:',["mode=","file=","layer=","address=", "name=", "pass=", "checkonly="])    
 
     for opt, arg in opts:
         if opt == '-h':
-            print ('upgrade.py --file <localimagefilename> --layer <http:// https://> --address <address of device> --name <username> --pass <password> --checkonly yes --mode force')
+            print ('upgrade.py --local <localimagefilename> --layer <http:// https://> --address <address of device> --name <username> --pass <password> --checkonly yes --mode force')
             exit(0)
         elif opt in ("-m", "--mode"):
+            print("Found mode")
             if (arg == "force"):
                 forceupgrade = 1
             parameterspassed = (parameterspassed | 1)
@@ -66,39 +69,38 @@ try:
             parameterspassed = (parameterspassed | 8)
         elif opt in ("-n", "--name"):
             USERNAME = arg
-            parameterspassed = (parameterspassed | 16)
+            parameterspassed = (parameterspassed | 16)            
         elif opt in ("-p", "--pass"):
             PASSWORD = arg
-            parameterspassed = (parameterspassed | 32)
+            parameterspassed = (parameterspassed | 32)            
         elif opt in ("-c", "--checkonly"):
             if ((arg.upper() == "YES") or (arg.upper() == "Y")):
                 checkonly = 1
-            parameterspassed = (parameterspassed | 64)
+            parameterspassed = (parameterspassed | 64)                
 
 except getopt.GetoptError:
-    print ('upgrade.py --file <localimagefilename> --layer <http:// https://> --address <address of device> --name <username> --pass <password> --checkonly yes --mode force')
+    print ('upgrade.py --local <localimagefilename> --layer <http:// https://> --address <address of device> --name <username> --pass <password> --checkonly yes --mode force')
     exit(2)
 
 # if a local file was defined lets see what family it is: Console or Power
 if (usersuppliedfilename is not None):
     try:
         ifilesize = os.path.getsize(usersuppliedfilename)
-        file = open(usersuppliedfilename, 'rb')
+        file = open(usersuppliedfilename, 'r')
         file.seek(ifilesize-20)
         fileread = file.read()
-        if (fileread.find(b'TSM') >= 0):
+        if (fileread.find("TSM") >= 0):
             localfilefamily = 1
-        elif (fileread.find(b'VMR') >= 0):
+        elif  (fileread.find("VMR") >= 0):
             localfilefamily = 0
         file.close()
-        print("User Supplied file [%s] is a %s type." % (usersuppliedfilename, ("Console" if localfilefamily == 1 else "Power")))
+        print("User Supplied file [%s] is a %s type." %(usersuppliedfilename, ("Console" if localfilefamily == 1 else "Power")))
     except Exception as ex:
-        print("User Supplied file [%s] does not exist\n\n" % (usersuppliedfilename))
-        print(ex)
+        print("User Supplied file [%s] does not exist\n\n" %(usersuppliedfilename))
         exit(1)
 
 if ((parameterspassed & 4) == 0):
-    tempdata = input("Enter Protocol [default: %s ]: " % (URI))
+    tempdata = input("Enter URI [default: %s ]: " % (URI))
     if (len(tempdata) > 0):
         URI = tempdata
 
@@ -141,22 +143,20 @@ try:
 #        print(response.text)
         local_release_version = result["config"]["firmware"]
         try:
-            family = int(result["config"]["family"])
+            family = result['data']["config"]["family"]
         except Exception as ex:
             family = 1
 
         try:
-            fips = result["config"]["fips"]
+            fips = result['data']["config"]["fips"]
             if (fips == 0):
-                fips = 1  # MAKE 2, 1 ONLY TEST: get me the no fips or merged code
+                fips = 2  # get me the no fips or merged code
         except Exception as ex:
             fips = 1
 
         print("Device reports Version: %s, Family: %s\n" % (local_release_version, ("Console" if family == 1 else "Power")))
         if (localfilefamily != -1):
             if (family != localfilefamily):
-                print("Device reports family: %d, localfilefamily: %d\n" % (family, localfilefamily))
-
                 print("FAMILY MISMATCH: Your local file is a %s type, and the device is a %s type\n\n" % (("Console" if localfilefamily == 1 else "Power"), ("Console" if family == 1 else "Power")))
                 exit(3)
 
