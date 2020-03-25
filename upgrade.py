@@ -186,7 +186,7 @@ try:
             exit(0)
 
         print("WTI reports the latest of a %s is Version: %s\n" % (("Console" if family == 1 else "Power"), remote_release_version))
-        statuscode = result["code"]
+        statuscode = result["status"]["code"]
     else:
         remote_release_version = 0
 
