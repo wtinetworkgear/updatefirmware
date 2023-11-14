@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+# 1.0 Initial Release
+# 1.1 Added user token authentication support
+#
+# sample command line examples:
+# python3 upgrade.py
+# python3 upgrade.py --mode force
+# python3 upgrade.py --file /media/D4E8-8A56/uimage_3352_tsm_arm.md5 --mode force
+
 import json
 import os
 import tempfile
@@ -24,32 +32,33 @@ urllib3.disable_warnings()
 
 # Address of the WTI device
 URI = "https://"
-SITE_NAME = "192.168.168.168"
+SITE_NAME = "192.168.0.223"
 
 # put in the username and password to your WTI device here
 USERNAME = "super"
 PASSWORD = "super"
+TOKEN = ""
 
 usersuppliedfilename = None
 localfilefamily = -1
 result = ""
+authtype = 0   # 0 - username/password, 1 = token
 forceupgrade = 0
 family = 1
-fips = None
 checkonly = 0
 parameterspassed = 0
 
 assert sys.version_info >= (3, 0)
 
-print("WTI Device Upgrade Program 1.0 (Python)\n")
+print("WTI Device Upgrade Program 1.1 (Python)\n")
 
 try:
     argv = sys.argv[1:]
-    opts, args = getopt.getopt(argv, 'hm:f:l:a:n:p:c:', ["mode=", "file=", "layer=", "address=", "name=", "pass=", "checkonly="])
+    opts, args = getopt.getopt(argv, 'hm:f:l:a:t:n:p:c:', ["mode=", "file=", "layer=", "address=", "name=", "pass=", "checkonly="])
 
     for opt, arg in opts:
         if opt == '-h':
-            print ('upgrade.py --file <localimagefilename> --layer <http:// https://> --address <address of device> --name <username> --pass <password> --checkonly yes --mode force')
+            print ('upgrade.py --file <localimagefilename> --layer <http:// https://> --address <address of device> --token <token> --name <username> --pass <password> --checkonly yes --mode force')
             exit(0)
         elif opt in ("-m", "--mode"):
             if (arg == "force"):
@@ -64,6 +73,9 @@ try:
         elif opt in ("-a", "--address"):
             SITE_NAME = arg
             parameterspassed = (parameterspassed | 8)
+        elif opt in ("-t", "--token"):
+            TOKEN = arg
+            parameterspassed = (parameterspassed | 128)
         elif opt in ("-n", "--name"):
             USERNAME = arg
             parameterspassed = (parameterspassed | 16)
@@ -107,15 +119,30 @@ if ((parameterspassed & 8) == 0):
     if (len(tempdata) > 0):
         SITE_NAME = tempdata
 
-if ((parameterspassed & 16) == 0):
-    tempdata = input("Enter Device Username [default: %s ]: " % (USERNAME))
+if ((parameterspassed & 128) == 0):
+    tempdata = input("Using Token ? [default: N ]: ")
     if (len(tempdata) > 0):
-        USERNAME = tempdata
+        if (tempdata == "Y") or (tempdata == "y"):
+            authtype = 1
 
-if ((parameterspassed & 32) == 0):
-    tempdata = input("Enter Device Password [default: %s ]: " % (PASSWORD))
-    if (len(tempdata) > 0):
-        PASSWORD = tempdata
+if (authtype == 0):
+    if ((parameterspassed & 16) == 0):
+        tempdata = input("Enter Device Username [default: %s ]: " % (USERNAME))
+        if (len(tempdata) > 0):
+            USERNAME = tempdata
+
+    if ((parameterspassed & 32) == 0):
+        tempdata = input("Enter Device Password [default: %s ]: " % (PASSWORD))
+        if (len(tempdata) > 0):
+            PASSWORD = tempdata
+else:
+    if ((parameterspassed & 128) == 0):
+        tempdata = input("Enter Device Token [default: %s ]: " % (TOKEN))
+        if (len(tempdata) > 0):
+            TOKEN = tempdata
+        if (len(TOKEN) == 0):
+            print("Token must be defined")
+            exit(0)
 
 if ((parameterspassed & 64) == 0):
     tempdata = input("Check Only [default: %s ]: " % ("No"))
@@ -145,13 +172,6 @@ try:
         except Exception as ex:
             family = 1
 
-        try:
-            fips = result["config"]["fips"]
-            if (fips == 0):
-                fips = 1  # MAKE 2, 1 ONLY TEST: get me the no fips or merged code
-        except Exception as ex:
-            fips = 1
-
         print("Device reports Version: %s, Family: %s\n" % (local_release_version, ("Console" if family == 1 else "Power")))
         if (localfilefamily != -1):
             if (family != localfilefamily):
@@ -174,8 +194,6 @@ try:
     # 2. Go online and find the latest version of software for this WTI device if there was not local file defined
     if (localfilefamily == -1):
         fullurl = ("https://my.wti.com/update/version.aspx?fam=%s" % (family))
-        if (fips is not None):
-            fullurl = ("%s&fipsonly=%d" % (fullurl, int(fips)))
 
         print("Checking WTI for the latest OS version for a %s unit\n" % (("Console" if family == 1 else "Power")))
 
@@ -196,6 +214,7 @@ try:
         statuscode = result['status']["code"]
     else:
         remote_release_version = 0
+        statuscode = 0
 
     if (int(statuscode) == 0):
         local_filename = None
@@ -221,13 +240,20 @@ try:
                     else:
                         print("FAMILY MISMATCH: Your local file is a %s type, and the device is a %s type\n\n" % (("Console" if localfilefamily == 1 else "Power"), ("Console" if family == 1 else "Power")))
                         exit(3)
+
                 # SEND the file to the WTI device
-                fullurl = ("%s%s/cgi-bin/getfile" % (URI, SITE_NAME))
                 files = {'file': ('name.binary', open(local_filename, 'rb'), 'application/octet-stream')}
 
                 print("Sending %s --> %s%s\n" % (local_filename, URI, SITE_NAME))
 
-                response = requests.post(fullurl, files=files, auth=(USERNAME, PASSWORD), verify=False, stream=True)
+                if (authtype == 0):
+                    fullurl = ("%s%s/cgi-bin/getfile" % (URI, SITE_NAME))
+                    response = requests.post(fullurl, files=files, auth=(USERNAME, PASSWORD), verify=False, stream=True)
+                else:
+                    fullurl = ("%s%s/api/getfile" % (URI, SITE_NAME))
+                    header = {'X-WTI-API-KEY': "%s" % (TOKEN)}
+                    response = requests.post(fullurl, files=files, verify=False, stream=True, headers=header)
+
                 result = response.json()
 
                 print("response: %s\n" % (response))
